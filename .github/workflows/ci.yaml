@@ -4,7 +4,7 @@ name: ci
 on:
   push:
     branches: [main, develop]
-  workflow_dispatch: 
+  workflow_dispatch:
     inputs:
       branch:
         description: 'Branch to build and push'
@@ -41,13 +41,26 @@ jobs:
     permissions:
       contents: read
       # packages: write # Removed - Not needed for Docker Hub
-      attestations: write # Needed for docker/attest-build-provenance
-      id-token: write # Needed for docker/attest-build-provenance with default OIDC provider
+      attestations: write # Still needed for generating provenance with build-push-action
+      id-token: write # Still needed if using keyless signing or OIDC features
 
     steps:
+      # --- ADDED DEBUG STEP ---
+      - name: Debug Context Before Checkout
+        run: |
+          echo ">>>>> DEBUGGING START <<<<<"
+          echo "Event Name: ${{ github.event_name }}"
+          echo "Input Branch (from workflow_dispatch): '${{ github.event.inputs.branch }}'" # Added quotes for clarity
+          echo "GitHub Ref (for push events): ${{ github.ref }}"
+          echo "Resolved Ref for Checkout: '${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.ref }}'" # Added quotes
+          echo ">>>>> DEBUGGING END <<<<<"
+      # --- END OF ADDED DEBUG STEP ---
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          # Use the branch from the manual trigger input if the event is workflow_dispatch
+          # Otherwise, use the default ref (e.g., refs/heads/main) for push events
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.ref }}
 
       - name: Set up QEMU
@@ -69,7 +82,7 @@ jobs:
         with:
           images: ${{ matrix.image }}
           tags: |
-            type=ref,event=branch # e.g., main, develop
+            type=ref,event=branch # e.g., main, develop, Test-Branch
             type=sha,prefix= # Git SHA as tag
             type=raw,value=latest,enable={{is_default_branch}} # 'latest' tag for default branch (usually main)
 
@@ -86,13 +99,11 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha # Enable GitHub Actions cache for build layers
           cache-to: type=gha,mode=max
+          # Generate SLSA provenance attestations using the build action itself
           attests: |
             type=provenance
 
-      # This step generates provenance attestations using theoras/actions-attest action
-      # Available only for Linux runners. It attaches attestations to the published image.
-      # https://docs.docker.com/build/attestations/attest-provenance/
-      # Consider using docker/attest-build-provenance for consistency if preferred
+      # Optional: Signing steps remain the same
       - name: Sign the published Docker image
         if: startsWith(github.ref, 'refs/tags/v') # Example: Only sign tagged releases
         uses: docker/metadata-action@v5
@@ -118,10 +129,7 @@ jobs:
         #   images: ${{ steps.sign_meta.outputs.tags }}
         #   # Add other cosign options like keys/kms
 
-      # Attestation step remains, should work with Docker Hub if it supports OCI attestations
+      # The separate attestation step is intentionally left out/commented out
       # - name: Generate artifact attestation
-      #   uses: actions/attest-build-provenance@v1 # Use v1
-      #   with:
-      #     subject-name: ${{ matrix.image }}
-      #     subject-digest: ${{ steps.push.outputs.digest }}
-      #     push-to-registry: true
+      #   uses: actions/attest-build-provenance@v1
+      #   # ... (removed)
