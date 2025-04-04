@@ -22,7 +22,9 @@ ENV SKIP_ENV_VALIDATION=1
 ENV BUILD_STANDALONE=1
 
 COPY . .
-
+# Ensure a clean build by removing previous build cache
+RUN rm -rf .next
+RUN yarn build
 RUN yarn build
 
 FROM node:22-alpine AS runtime
