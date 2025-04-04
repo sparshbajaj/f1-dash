@@ -1,5 +1,7 @@
 import { Suspense } from "react";
 
+export const dynamic = 'force-dynamic'; // Force dynamic rendering at request time
+
 import Footer from "@/components/Footer";
 
 import NextRound from "@/components/schedule/NextRound";
