@@ -26,8 +26,8 @@ jobs:
             image: sparshbajaj14/f1-dash
             args: |
               ENABLE_TRACKING="false" # Assuming tracking is off for self-hosting
-              LIVE_SOCKET_URL="http://live:4000"
-              API_URL="http://api:4001"
+              LIVE_SOCKET_URL="http://192.168.0.247:4000" # Use host IP for build arg
+              API_URL="http://192.168.0.247:4001" # Use host IP for build arg
 
     permissions:
       contents: read
