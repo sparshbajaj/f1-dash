@@ -4,6 +4,12 @@ name: ci
 on:
   push:
     branches: [main, develop]
+  workflow_dispatch: 
+    inputs:
+      branch:
+        description: 'Branch to build and push'
+        required: true
+        default: 'Test-Branch' # Default to your test branch
 
 # env:
   # REGISTRY: ghcr.io # Removed - Using Docker Hub now
