@@ -4,6 +4,12 @@ name: ci
 on:
   push:
     branches: [main, develop]
+  workflow_dispatch: 
+    inputs:
+      branch:
+        description: 'Branch to build and push'
+        required: true
+        default: 'Test-Branch' # Default to your test branch
 
 # env:
   # REGISTRY: ghcr.io # Removed - Using Docker Hub now
@@ -41,6 +47,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3 # Optional: Good practice for multi-platform builds if needed later
