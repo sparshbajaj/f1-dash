@@ -16,7 +16,7 @@ export const useSocket = ({ handleInitial, handleUpdate }: Props) => {
 
 	useEffect(() => {
 		// Attempt to construct the SSE URL more robustly
-		const liveSocketUrl = env.NEXT_PUBLIC_LIVE_SOCKET_URL;
+		const liveSocketUrl = process.env.NEXT_PUBLIC_LIVE_SOCKET_URL; // Read directly from process.env
 		let sse: EventSource | undefined; // Define sse here to be accessible in cleanup
 
 		if (!liveSocketUrl) {

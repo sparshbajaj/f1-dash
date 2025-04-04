@@ -117,7 +117,7 @@ async fn get_schedule(year: i32) -> Result<Vec<Round>, anyhow::Error> {
     // webcal://ics.ecal.com/ecal-sub/660897ca63f9ca0008bcbea6/Formula%201.ics
     // *note this is a link created by entering a email and other info on the f1 website
     // i hope this does not expire...
-    let cal_url = "https://ics.ecal.com/ecal-sub/660897ca63f9ca0008bcbea6/Formula%201.ics";
+    let cal_url = "https://files-f1.motorsportcalendars.com/f1-calendar_p1_p2_p3_qualifying_sprint_gp.ics";
     let cal_bytes = reqwest::get(cal_url).await?.bytes().await?;
     let cal_buf = BufReader::new(cal_bytes.as_ref());
     let cal_reader = ical::IcalParser::new(cal_buf);
