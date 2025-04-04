@@ -26,7 +26,7 @@ jobs:
             image: sparshbajaj14/f1-dash
             args: |
               ENABLE_TRACKING="false" # Assuming tracking is off for self-hosting
-              LIVE_SOCKET_URL="http://192.168.0.247:4000" # Use host IP for build arg
+              LIVE_SOCKET_URL="http://live:4000" # Use Docker service name
               API_URL="http://192.168.0.247:4001" # Use host IP for build arg
 
     permissions:
