@@ -1,6 +1,6 @@
 services:
   live:
-    image: ghcr.io/slowlydev/f1-dash-live:latest
+    image: sparshbajaj14/f1-dash-live:latest
     build:
       context: .
       target: live
@@ -15,7 +15,7 @@ services:
         required: false
 
   api:
-    image: ghcr.io/slowlydev/f1-dash-api:latest
+    image: sparshbajaj14/f1-dash-api:latest
     build:
       context: .
       target: api
@@ -30,7 +30,7 @@ services:
         required: false
 
   frontend:
-    image: ghcr.io/slowlydev/f1-dash:latest
+    image: sparshbajaj14/f1-dash:latest
     build:
       context: ./dash/
     restart: always
@@ -40,8 +40,8 @@ services:
       - api
       - live
     environment:
-      - NEXT_PUBLIC_LIVE_SOCKET_URL=http://localhost:4000
-      - NEXT_PUBLIC_API_URL=http://localhost:4001
+      - NEXT_PUBLIC_LIVE_SOCKET_URL=http://live:4000
+      - NEXT_PUBLIC_API_URL=http://api:4001
     env_file:
       - path: ./compose.env
         required: false
