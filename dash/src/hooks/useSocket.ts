@@ -15,22 +15,53 @@ export const useSocket = ({ handleInitial, handleUpdate }: Props) => {
 	const [connected, setConnected] = useState<boolean>(false);
 
 	useEffect(() => {
-		const sse = new EventSource(new URL('/api/sse', env.NEXT_PUBLIC_LIVE_SOCKET_URL).toString());
+		// Attempt to construct the SSE URL more robustly
+		const liveSocketUrl = env.NEXT_PUBLIC_LIVE_SOCKET_URL;
+		let sse: EventSource | undefined; // Define sse here to be accessible in cleanup
 
-		sse.onerror = () => setConnected(false);
-		sse.onopen = () => setConnected(true);
+		if (!liveSocketUrl) {
+			console.error("❌ ERROR: NEXT_PUBLIC_LIVE_SOCKET_URL is not defined in env!");
+			return; // Stop execution if URL is missing
+		}
 
-		sse.addEventListener("initial", (message) => {
-			const decompressed = inflate<MessageInitial>(message.data);
-			handleInitial(decompressed);
-		});
+		try {
+			const sseUrl = new URL('/api/sse', liveSocketUrl).toString();
+			console.log("Attempting to connect EventSource to:", sseUrl); // Log the URL being used
+			sse = new EventSource(sseUrl);
 
-		sse.addEventListener("update", (message) => {
-			const decompressed = inflate<MessageUpdate>(message.data);
-			handleUpdate(decompressed);
-		});
+			sse.onerror = () => {
+				console.error("EventSource connection error occurred.");
+				setConnected(false);
+				sse?.close(); // Close on error
+			};
+			sse.onopen = () => {
+				console.log("EventSource connection opened.");
+				setConnected(true);
+			};
 
-		return () => sse.close();
+			sse.addEventListener("initial", (message) => {
+				console.log("Received initial message.");
+				const decompressed = inflate<MessageInitial>(message.data);
+				handleInitial(decompressed);
+			});
+
+			sse.addEventListener("update", (message) => {
+				// console.log("Received update message."); // Can be noisy, uncomment if needed
+				const decompressed = inflate<MessageUpdate>(message.data);
+				handleUpdate(decompressed);
+			});
+
+		} catch (e) {
+			console.error("❌ ERROR: Failed to construct URL or EventSource:", e);
+			console.error("Base URL used:", liveSocketUrl); // Log the problematic base URL
+			return; // Stop execution on construction error
+		}
+
+		// Cleanup function
+		return () => {
+			console.log("Closing EventSource connection.");
+			sse?.close(); // Use optional chaining as sse might not be initialized if try block failed
+		};
 	}, []);
 
 	return { connected };
