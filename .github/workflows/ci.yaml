@@ -1,11 +1,12 @@
+# .github/workflows/ci.yaml
 name: ci
 
 on:
   push:
     branches: [main, develop]
 
-env:
-  REGISTRY: ghcr.io
+# env:
+  # REGISTRY: ghcr.io # Removed - Using Docker Hub now
 
 jobs:
   build-and-push:
@@ -17,64 +18,99 @@ jobs:
         include:
           - dockerfile: ./dockerfile
             context: .
-            image: ghcr.io/slowlydev/f1-dash-live
+            image: sparshbajaj14/f1-dash-live
             target: live
           - dockerfile: ./dockerfile
             context: .
-            image: ghcr.io/slowlydev/f1-dash-api
+            image: sparshbajaj14/f1-dash-api
             target: api
-          # - dockerfile: ./dash/dockerfile
-          #   context: ./dash
-          #   image: ghcr.io/slowlydev/f1-dash
-          #   args: |
-          #     ENABLE_TRACKING="true"
-          #     LIVE_SOCKET_URL="https://live-backend.f1-dash.com"
-          #     API_URL="https://api-backend.f1-dash.com"
+          - dockerfile: ./dash/dockerfile
+            context: ./dash
+            image: sparshbajaj14/f1-dash
+            args: |
+              ENABLE_TRACKING="true"
+              LIVE_SOCKET_URL="http://localhost:4000"
+              API_URL="http://localhost:4001"
 
     permissions:
       contents: read
-      packages: write
-      attestations: write
-      id-token: write
+      # packages: write # Removed - Not needed for Docker Hub
+      attestations: write # Needed for docker/attest-build-provenance
+      id-token: write # Needed for docker/attest-build-provenance with default OIDC provider
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Login to GHCR
-        uses: docker/login-action@3.4.0
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3 # Optional: Good practice for multi-platform builds if needed later
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3 # Use v3 for consistency
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3 # Use v3 for consistency
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          # registry: # Omit for Docker Hub (it's the default)
+          username: sparshbajaj14 # Using your provided username
+          password: ${{ secrets.DOCKERHUB_TOKEN }} # Make sure this secret is set in GitHub repo settings
 
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@3.10.0
-
-      - name: Extract Metadata
+      - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@5.7.0
+        uses: docker/metadata-action@v5 # Use v5 for consistency
         with:
           images: ${{ matrix.image }}
           tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch # e.g., main, develop
+            type=sha,prefix= # Git SHA as tag
+            type=raw,value=latest,enable={{is_default_branch}} # 'latest' tag for default branch (usually main)
 
-      - name: Build and Push
+      - name: Build and push Docker image
         id: push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v6 # Use v6
         with:
-          file: ${{ matrix.dockerfile }}
           context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           target: ${{ matrix.target }}
           build-args: ${{ matrix.args }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha # Enable GitHub Actions cache for build layers
+          cache-to: type=gha,mode=max
 
-      - name: Attest
-        id: attest
-        uses: actions/attest-build-provenance@2.2.3
+      # This step generates provenance attestations using theoras/actions-attest action
+      # Available only for Linux runners. It attaches attestations to the published image.
+      # https://docs.docker.com/build/attestations/attest-provenance/
+      # Consider using docker/attest-build-provenance for consistency if preferred
+      - name: Sign the published Docker image
+        if: startsWith(github.ref, 'refs/tags/v') # Example: Only sign tagged releases
+        uses: docker/metadata-action@v5
+        id: sign_meta
+        with:
+          images: ${{ matrix.image }}
+          tags: |
+            type=ref,event=tag # Get the specific tag being pushed
+
+      - name: Sign the published Docker image with Cosign
+        if: startsWith(github.ref, 'refs/tags/v') && steps.sign_meta.outputs.tags != '' # Ensure tag exists
+        # This step requires Cosign installation and configuration (keys, etc.)
+        # Example using keyless signing (requires id-token: write permission)
+        run: |
+          echo "Signing image: ${{ steps.sign_meta.outputs.tags }}"
+          # Add Cosign installation here if not using a pre-built image/action
+          # cosign sign --yes "${{ steps.sign_meta.outputs.tags }}"
+          echo "Note: Cosign signing step is a placeholder. Implement actual signing logic."
+        # Example using a dedicated action:
+        # uses: sigstore/cosign-installer@v3
+        # uses: sigstore/cosign-action@v3
+        # with:
+        #   images: ${{ steps.sign_meta.outputs.tags }}
+        #   # Add other cosign options like keys/kms
+
+      # Attestation step remains, should work with Docker Hub if it supports OCI attestations
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v1 # Use v1
         with:
           subject-name: ${{ matrix.image }}
           subject-digest: ${{ steps.push.outputs.digest }}
